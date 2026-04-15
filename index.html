@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GS1 Scanner Pro</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+* {
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: #fff;
+}
+
+.container {
+    max-width: 500px;
+    margin: auto;
+    padding: 20px;
+}
+
+.header {
+    text-align:center;
+    margin-bottom:20px;
+}
+
+.header h1 {
+    font-size:22px;
+    color:#38bdf8;
+}
+
+.card {
+    background: rgba(255,255,255,0.05);
+    border-radius:16px;
+    padding:15px;
+    margin-bottom:15px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+}
+
+#reader {
+    width:100%;
+    border-radius:12px;
+    overflow:hidden;
+}
+
+.stats {
+    display:flex;
+    justify-content:space-between;
+    margin-top:10px;
+}
+
+.stat-box {
+    flex:1;
+    margin:5px;
+    background:#0ea5e9;
+    padding:10px;
+    border-radius:10px;
+    text-align:center;
+}
+
+.stat-box span {
+    display:block;
+    font-size:12px;
+}
+
+.stat-box strong {
+    font-size:16px;
+}
+
+.log {
+    max-height:150px;
+    overflow:auto;
+    font-size:12px;
+}
+
+.log div {
+    padding:5px;
+    border-bottom:1px solid rgba(255,255,255,0.1);
+}
+
+button {
+    width:100%;
+    padding:12px;
+    margin-top:10px;
+    border:none;
+    border-radius:10px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.btn-export {
+    background:#22c55e;
+}
+
+.btn-clear {
+    background:#ef4444;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">
+    <h1>📦 GS1 Scanner Pro</h1>
+</div>
+
+<div class="card">
+    <div id="reader"></div>
+</div>
+
+<div class="card">
+    <div class="stats">
+        <div class="stat-box">
+            <span>Total Box</span>
+            <strong id="totalBox">0</strong>
+        </div>
+        <div class="stat-box">
+            <span>Total Kg</span>
+            <strong id="totalKg">0</strong>
+        </div>
+    </div>
+</div>
+
+<div class="card log" id="log"></div>
+
+<button class="btn-export" onclick="exportExcel()">EXPORT EXCEL</button>
+<button class="btn-clear" onclick="clearData()">RESET DATA</button>
+
+</div>
+
+<script>
+let dataScan = [];
+let totalKg = 0;
+
+function parseGS1(barcode) {
+    barcode = barcode.replace(/\(|\)/g, "");
+    let i = 0;
+    let result = {};
+
+    while (i < barcode.length) {
+        let ai = barcode.substring(i, i + 2);
+
+        if (ai === "01") {
+            result.gtin = barcode.substring(i + 2, i + 16);
+            i += 16;
+        }
+        else if (barcode.substring(i, i + 3) === "310") {
+            let decimal = parseInt(barcode[i + 3]);
+            let rawWeight = barcode.substring(i + 4, i + 10);
+            let weight = parseInt(rawWeight) / Math.pow(10, decimal);
+            result.weight = weight;
+            i += 10;
+        }
+        else if (ai === "11") {
+            let date = barcode.substring(i + 2, i + 8);
+            result.productionDate = formatDate(date);
+            i += 8;
+        }
+        else if (ai === "21") {
+            result.serial = barcode.substring(i + 2);
+            break;
+        }
+        else { break; }
+    }
+
+    return result;
+}
+
+function formatDate(yyMMdd) {
+    let year = "20" + yyMMdd.substring(0, 2);
+    let month = yyMMdd.substring(2, 4);
+    let day = yyMMdd.substring(4, 6);
+    return `${day}/${month}/${year}`;
+}
+
+function onScanSuccess(decodedText) {
+    let parsed = parseGS1(decodedText);
+
+    if(parsed.weight){
+        dataScan.push(parsed);
+        totalKg += parsed.weight;
+
+        document.getElementById("totalBox").innerText = dataScan.length;
+        document.getElementById("totalKg").innerText = totalKg.toFixed(2);
+
+        let log = document.getElementById("log");
+        let item = document.createElement("div");
+        item.innerText = "✔ " + parsed.weight + " kg | " + parsed.serial;
+        log.prepend(item);
+    }
+}
+
+let scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+scanner.render(onScanSuccess);
+
+function clearData(){
+    dataScan = [];
+    totalKg = 0;
+    document.getElementById("totalBox").innerText = 0;
+    document.getElementById("totalKg").innerText = 0;
+    document.getElementById("log").innerHTML = "";
+}
+
+// ================= EXCEL =================
+function exportExcel(){
+
+    let wb = XLSX.utils.book_new();
+    let ws_data = [];
+
+    ws_data.push(["PT ANZINDO GRATIA INTERNATIONAL"]);
+    ws_data.push([]);
+    ws_data.push(["","","","","","","","Tgl","04/02/2026"]);
+    ws_data.push(["","","","","","","","Kepada","Bp. Jamal Firdaus"]);
+    ws_data.push(["","","","","TALLY SHEET"]);
+    ws_data.push(["Nama Barang : Short Ribs Boneless Choice Swift"]);
+    ws_data.push([]);
+
+    let index = 0;
+
+    for(let r=0; r<10; r++){
+        let row = [];
+        for(let c=0; c<10; c++){
+            if(dataScan[index]){
+                row.push(dataScan[index].weight);
+            } else {
+                row.push("");
+            }
+            index++;
+        }
+        ws_data.push(row);
+    }
+
+    ws_data.push([]);
+    ws_data.push(["Sub Total","",dataScan.length,"Box",totalKg,"Kg"]);
+
+    let ws = XLSX.utils.aoa_to_sheet(ws_data);
+    XLSX.utils.book_append_sheet(wb, ws, "Tally");
+    XLSX.writeFile(wb, "tally_sheet.xlsx");
+}
+</script>
+
+</body>
+</html>
