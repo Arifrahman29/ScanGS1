@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GS1 Scanner PRO MAX AI</title>
+<title>GS1 Scanner PRO MAX AI AUTO DETECT</title>
 
 <script src="https://unpkg.com/@zxing/library@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -33,16 +33,14 @@ body{
     backdrop-filter:blur(10px);
 }
 
-.video-wrap{
-    position:relative;
-}
+.video-wrap{position:relative;}
 
 video{
     width:100%;
     border-radius:12px;
 }
 
-/* FRAME SCAN */
+/* FRAME */
 .scan-box{
     position:absolute;
     top:50%;
@@ -55,7 +53,13 @@ video{
     box-shadow:0 0 20px #22c55e;
 }
 
-/* CANVAS HIDDEN */
+/* DETECT BOX */
+.detect-box{
+    position:absolute;
+    border:2px solid #facc15;
+    pointer-events:none;
+}
+
 canvas{display:none;}
 
 .stats{
@@ -83,6 +87,14 @@ button{
 
 .export{background:#22c55e;}
 .reset{background:#ef4444;}
+
+.upload{
+    background:#334155;
+    text-align:center;
+    padding:12px;
+    border-radius:10px;
+    margin-top:10px;
+}
 </style>
 </head>
 
@@ -91,7 +103,7 @@ button{
 <div class="container">
 
 <div class="header">
-<h1>🔥 GS1 Scanner PRO MAX AI</h1>
+<h1>🔥 GS1 Scanner PRO MAX AI AUTO DETECT</h1>
 </div>
 
 <div class="card video-wrap">
@@ -105,6 +117,10 @@ button{
 <div class="stat-box">Box<br><strong id="box">0</strong></div>
 <div class="stat-box">Kg<br><strong id="kg">0</strong></div>
 </div>
+</div>
+
+<div class="upload">
+<input type="file" accept="image/*" onchange="scanImage(event)">
 </div>
 
 <button class="export" onclick="exportExcel()">EXPORT EXCEL</button>
@@ -142,7 +158,6 @@ function parseGS1(barcode){
     return result;
 }
 
-// ZXING
 const codeReader = new ZXing.BrowserMultiFormatReader();
 
 // CAMERA
@@ -156,12 +171,11 @@ navigator.mediaDevices.getUserMedia({
     const video=document.getElementById("video");
     video.srcObject=stream;
     video.play();
-
-    autoScan(video);
+    autoDetectScan(video);
 });
 
-// 🔥 AI AUTO SCAN (CROP + ENHANCE)
-function autoScan(video){
+// 🔥 AI AUTO DETECT MULTI AREA
+function autoDetectScan(video){
     const canvas=document.getElementById("canvas");
     const ctx=canvas.getContext("2d");
 
@@ -171,44 +185,87 @@ function autoScan(video){
             canvas.width=video.videoWidth;
             canvas.height=video.videoHeight;
 
-            // 🔥 CROP TENGAH (FOCUS AREA)
-            let w=canvas.width*0.8;
-            let h=canvas.height*0.25;
-            let x=(canvas.width-w)/2;
-            let y=(canvas.height-h)/2;
+            let areas=[
+                {x:0.1,y:0.4,w:0.8,h:0.2},
+                {x:0.1,y:0.6,w:0.8,h:0.2},
+                {x:0.1,y:0.2,w:0.8,h:0.2}
+            ];
 
-            ctx.drawImage(video,x,y,w,h,0,0,w,h);
+            areas.forEach(area=>{
+                let w=canvas.width*area.w;
+                let h=canvas.height*area.h;
+                let x=canvas.width*area.x;
+                let y=canvas.height*area.y;
 
-            // 🔥 ENHANCE CONTRAST
-            let imgData=ctx.getImageData(0,0,w,h);
-            for(let i=0;i<imgData.data.length;i+=4){
-                let avg=(imgData.data[i]+imgData.data[i+1]+imgData.data[i+2])/3;
-                let val=avg>120?255:0;
-                imgData.data[i]=val;
-                imgData.data[i+1]=val;
-                imgData.data[i+2]=val;
-            }
-            ctx.putImageData(imgData,0,0);
+                ctx.drawImage(video,x,y,w,h,0,0,w,h);
 
-            // 🔥 DECODE
-            codeReader.decodeFromCanvas(canvas)
-            .then(result=>{
-                let parsed=parseGS1(result.text);
+                let imgData=ctx.getImageData(0,0,w,h);
 
-                if(parsed.weight){
-                    dataScan.push(parsed);
-                    totalKg+=parsed.weight;
-
-                    document.getElementById("box").innerText=dataScan.length;
-                    document.getElementById("kg").innerText=totalKg.toFixed(2);
-
-                    new Audio("https://www.soundjay.com/buttons/sounds/button-3.mp3").play();
-                    if(navigator.vibrate) navigator.vibrate(200);
+                for(let i=0;i<imgData.data.length;i+=4){
+                    let avg=(imgData.data[i]+imgData.data[i+1]+imgData.data[i+2])/3;
+                    let val=avg>120?255:0;
+                    imgData.data[i]=val;
+                    imgData.data[i+1]=val;
+                    imgData.data[i+2]=val;
                 }
-            })
-            .catch(()=>{});
+
+                ctx.putImageData(imgData,0,0);
+
+                codeReader.decodeFromCanvas(canvas)
+                .then(result=>{
+                    handleResult(result.text);
+                })
+                .catch(()=>{});
+            });
         }
-    },500);
+    },400);
+}
+
+// UPLOAD IMAGE
+function scanImage(event){
+    const file=event.target.files[0];
+    if(!file) return;
+
+    const img=new Image();
+    const reader=new FileReader();
+
+    reader.onload=e=>img.src=e.target.result;
+
+    img.onload=function(){
+        const canvas=document.getElementById("canvas");
+        const ctx=canvas.getContext("2d");
+
+        canvas.width=img.width;
+        canvas.height=img.height;
+
+        ctx.drawImage(img,0,0);
+
+        codeReader.decodeFromCanvas(canvas)
+        .then(result=>{
+            handleResult(result.text);
+        })
+        .catch(()=>{
+            alert("Barcode tidak terbaca");
+        });
+    }
+
+    reader.readAsDataURL(file);
+}
+
+// HANDLE RESULT
+function handleResult(text){
+    let parsed=parseGS1(text);
+
+    if(parsed.weight){
+        dataScan.push(parsed);
+        totalKg+=parsed.weight;
+
+        document.getElementById("box").innerText=dataScan.length;
+        document.getElementById("kg").innerText=totalKg.toFixed(2);
+
+        new Audio("https://www.soundjay.com/buttons/sounds/button-3.mp3").play();
+        if(navigator.vibrate) navigator.vibrate(200);
+    }
 }
 
 // RESET
