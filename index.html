@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GS1 Scanner PRO MAX AI AUTO DETECT</title>
+<title>GS1 Scanner PRO MAX AI FINAL</title>
 
 <script src="https://unpkg.com/@zxing/library@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -30,7 +30,6 @@ body{
     border-radius:16px;
     padding:15px;
     margin-bottom:15px;
-    backdrop-filter:blur(10px);
 }
 
 .video-wrap{position:relative;}
@@ -40,7 +39,6 @@ video{
     border-radius:12px;
 }
 
-/* FRAME */
 .scan-box{
     position:absolute;
     top:50%;
@@ -50,14 +48,6 @@ video{
     height:140px;
     border:3px dashed #22c55e;
     border-radius:10px;
-    box-shadow:0 0 20px #22c55e;
-}
-
-/* DETECT BOX */
-.detect-box{
-    position:absolute;
-    border:2px solid #facc15;
-    pointer-events:none;
 }
 
 canvas{display:none;}
@@ -103,7 +93,7 @@ button{
 <div class="container">
 
 <div class="header">
-<h1>🔥 GS1 Scanner PRO MAX AI AUTO DETECT</h1>
+<h1>🔥 GS1 Scanner PRO MAX AI FINAL</h1>
 </div>
 
 <div class="card video-wrap">
@@ -171,11 +161,11 @@ navigator.mediaDevices.getUserMedia({
     const video=document.getElementById("video");
     video.srcObject=stream;
     video.play();
-    autoDetectScan(video);
+    autoScan(video);
 });
 
-// 🔥 AI AUTO DETECT MULTI AREA
-function autoDetectScan(video){
+// AUTO SCAN CAMERA
+function autoScan(video){
     const canvas=document.getElementById("canvas");
     const ctx=canvas.getContext("2d");
 
@@ -185,43 +175,35 @@ function autoDetectScan(video){
             canvas.width=video.videoWidth;
             canvas.height=video.videoHeight;
 
-            let areas=[
-                {x:0.1,y:0.4,w:0.8,h:0.2},
-                {x:0.1,y:0.6,w:0.8,h:0.2},
-                {x:0.1,y:0.2,w:0.8,h:0.2}
-            ];
+            let w=canvas.width*0.8;
+            let h=canvas.height*0.25;
+            let x=(canvas.width-w)/2;
+            let y=(canvas.height-h)/2;
 
-            areas.forEach(area=>{
-                let w=canvas.width*area.w;
-                let h=canvas.height*area.h;
-                let x=canvas.width*area.x;
-                let y=canvas.height*area.y;
+            ctx.drawImage(video,x,y,w,h,0,0,w,h);
 
-                ctx.drawImage(video,x,y,w,h,0,0,w,h);
+            let imgData=ctx.getImageData(0,0,w,h);
 
-                let imgData=ctx.getImageData(0,0,w,h);
+            for(let i=0;i<imgData.data.length;i+=4){
+                let avg=(imgData.data[i]+imgData.data[i+1]+imgData.data[i+2])/3;
+                let val=avg>120?255:0;
+                imgData.data[i]=val;
+                imgData.data[i+1]=val;
+                imgData.data[i+2]=val;
+            }
 
-                for(let i=0;i<imgData.data.length;i+=4){
-                    let avg=(imgData.data[i]+imgData.data[i+1]+imgData.data[i+2])/3;
-                    let val=avg>120?255:0;
-                    imgData.data[i]=val;
-                    imgData.data[i+1]=val;
-                    imgData.data[i+2]=val;
-                }
+            ctx.putImageData(imgData,0,0);
 
-                ctx.putImageData(imgData,0,0);
-
-                codeReader.decodeFromCanvas(canvas)
-                .then(result=>{
-                    handleResult(result.text);
-                })
-                .catch(()=>{});
-            });
+            codeReader.decodeFromImage(undefined, canvas.toDataURL())
+            .then(result=>{
+                handleResult(result.text);
+            })
+            .catch(()=>{});
         }
-    },400);
+    },500);
 }
 
-// UPLOAD IMAGE
+// SCAN UPLOAD IMAGE
 function scanImage(event){
     const file=event.target.files[0];
     if(!file) return;
@@ -240,12 +222,12 @@ function scanImage(event){
 
         ctx.drawImage(img,0,0);
 
-        codeReader.decodeFromCanvas(canvas)
+        codeReader.decodeFromImage(undefined, canvas.toDataURL())
         .then(result=>{
             handleResult(result.text);
         })
         .catch(()=>{
-            alert("Barcode tidak terbaca");
+            alert("Barcode tidak terbaca, pastikan jelas & dekat");
         });
     }
 
