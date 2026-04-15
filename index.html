@@ -3,62 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GS1 Scanner Pro</title>
+<title>GS1 Scanner PRO MAX Ultra</title>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://unpkg.com/@zxing/library@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
-* {
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-    font-family: 'Segoe UI', sans-serif;
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
+
+body{
+    background:linear-gradient(135deg,#0f172a,#1e293b);
+    color:#fff;
 }
 
-body {
-    background: linear-gradient(135deg, #0f172a, #1e293b);
-    color: #fff;
+.container{
+    max-width:500px;
+    margin:auto;
+    padding:20px;
 }
 
-.container {
-    max-width: 500px;
-    margin: auto;
-    padding: 20px;
-}
-
-.header {
+.header{
     text-align:center;
     margin-bottom:20px;
 }
 
-.header h1 {
+.header h1{
     font-size:22px;
     color:#38bdf8;
 }
 
-.card {
-    background: rgba(255,255,255,0.05);
+.card{
+    background:rgba(255,255,255,0.05);
     border-radius:16px;
     padding:15px;
     margin-bottom:15px;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    backdrop-filter:blur(10px);
+    box-shadow:0 10px 25px rgba(0,0,0,0.4);
 }
 
-#reader {
+video{
     width:100%;
     border-radius:12px;
-    overflow:hidden;
 }
 
-.stats {
+.stats{
     display:flex;
     justify-content:space-between;
-    margin-top:10px;
 }
 
-.stat-box {
+.stat-box{
     flex:1;
     margin:5px;
     background:#0ea5e9;
@@ -67,27 +60,27 @@ body {
     text-align:center;
 }
 
-.stat-box span {
+.stat-box span{
     display:block;
     font-size:12px;
 }
 
-.stat-box strong {
+.stat-box strong{
     font-size:16px;
 }
 
-.log {
+.log{
     max-height:150px;
     overflow:auto;
     font-size:12px;
 }
 
-.log div {
+.log div{
     padding:5px;
     border-bottom:1px solid rgba(255,255,255,0.1);
 }
 
-button {
+button{
     width:100%;
     padding:12px;
     margin-top:10px;
@@ -97,13 +90,8 @@ button {
     cursor:pointer;
 }
 
-.btn-export {
-    background:#22c55e;
-}
-
-.btn-clear {
-    background:#ef4444;
-}
+.btn-export{background:#22c55e;}
+.btn-clear{background:#ef4444;}
 </style>
 </head>
 
@@ -112,144 +100,141 @@ button {
 <div class="container">
 
 <div class="header">
-    <h1>📦 GS1 Scanner Pro</h1>
+<h1>🔥 GS1 Scanner PRO MAX Ultra</h1>
 </div>
 
 <div class="card">
-    <div id="reader"></div>
+<video id="video" autoplay muted playsinline></video>
 </div>
 
 <div class="card">
-    <div class="stats">
-        <div class="stat-box">
-            <span>Total Box</span>
-            <strong id="totalBox">0</strong>
-        </div>
-        <div class="stat-box">
-            <span>Total Kg</span>
-            <strong id="totalKg">0</strong>
-        </div>
-    </div>
+<div class="stats">
+<div class="stat-box">
+<span>Total Box</span>
+<strong id="box">0</strong>
+</div>
+<div class="stat-box">
+<span>Total Kg</span>
+<strong id="kg">0</strong>
+</div>
+</div>
 </div>
 
 <div class="card log" id="log"></div>
 
 <button class="btn-export" onclick="exportExcel()">EXPORT EXCEL</button>
-<button class="btn-clear" onclick="clearData()">RESET DATA</button>
+<button class="btn-clear" onclick="reset()">RESET DATA</button>
 
 </div>
 
 <script>
-let dataScan = [];
-let totalKg = 0;
+let dataScan=[];
+let totalKg=0;
 
-function parseGS1(barcode) {
-    barcode = barcode.replace(/\(|\)/g, "");
-    let i = 0;
-    let result = {};
+function parseGS1(barcode){
+    barcode=barcode.replace(/\(|\)/g,"");
+    let i=0,result={};
 
-    while (i < barcode.length) {
-        let ai = barcode.substring(i, i + 2);
+    while(i<barcode.length){
+        let ai=barcode.substring(i,i+2);
 
-        if (ai === "01") {
-            result.gtin = barcode.substring(i + 2, i + 16);
-            i += 16;
+        if(ai==="01"){
+            result.gtin=barcode.substring(i+2,i+16);
+            i+=16;
         }
-        else if (barcode.substring(i, i + 3) === "310") {
-            let decimal = parseInt(barcode[i + 3]);
-            let rawWeight = barcode.substring(i + 4, i + 10);
-            let weight = parseInt(rawWeight) / Math.pow(10, decimal);
-            result.weight = weight;
-            i += 10;
+        else if(barcode.substring(i,i+3)==="310"){
+            let decimal=parseInt(barcode[i+3]);
+            let raw=barcode.substring(i+4,i+10);
+            result.weight=parseInt(raw)/Math.pow(10,decimal);
+            i+=10;
         }
-        else if (ai === "11") {
-            let date = barcode.substring(i + 2, i + 8);
-            result.productionDate = formatDate(date);
-            i += 8;
+        else if(ai==="11"){
+            let date=barcode.substring(i+2,i+8);
+            result.productionDate=formatDate(date);
+            i+=8;
         }
-        else if (ai === "17") {
-            let date = barcode.substring(i + 2, i + 8);
-            result.expiryDate = formatDate(date);
-            i += 8;
+        else if(ai==="17"){
+            let date=barcode.substring(i+2,i+8);
+            result.expiryDate=formatDate(date);
+            i+=8;
         }
-        else if (ai === "21") {
-            result.serial = barcode.substring(i + 2);
+        else if(ai==="21"){
+            result.serial=barcode.substring(i+2);
             break;
         }
-        else { break; }
+        else{break;}
     }
-
     return result;
 }
 
-function formatDate(yyMMdd) {
-    let year = "20" + yyMMdd.substring(0, 2);
-    let month = yyMMdd.substring(2, 4);
-    let day = yyMMdd.substring(4, 6);
+function formatDate(yyMMdd){
+    let year="20"+yyMMdd.substring(0,2);
+    let month=yyMMdd.substring(2,4);
+    let day=yyMMdd.substring(4,6);
     return `${day}/${month}/${year}`;
 }
 
-function onScanSuccess(decodedText) {
-    let parsed = parseGS1(decodedText);
+// 🔥 ULTRA SENSITIVE CONFIG
+const hints=new Map();
+hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
+    ZXing.BarcodeFormat.CODE_128,
+    ZXing.BarcodeFormat.CODE_39,
+    ZXing.BarcodeFormat.EAN_13
+]);
+hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
 
-    if(parsed.weight){
+const codeReader=new ZXing.BrowserMultiFormatReader(hints,500);
 
-        dataScan.push(parsed);
-        totalKg += parsed.weight;
-
-        document.getElementById("totalBox").innerText = dataScan.length;
-        document.getElementById("totalKg").innerText = totalKg.toFixed(2);
-
-        let log = document.getElementById("log");
-        let item = document.createElement("div");
-        item.innerText = "✔ " + parsed.weight + " kg | " + parsed.serial;
-        log.prepend(item);
-
-        new Audio("https://www.soundjay.com/buttons/sounds/button-3.mp3").play();
-        if (navigator.vibrate) navigator.vibrate(200);
+// 🔥 CAMERA HIGH QUALITY
+navigator.mediaDevices.getUserMedia({
+    video:{
+        facingMode:{ideal:"environment"},
+        width:{ideal:1920},
+        height:{ideal:1080}
     }
-}
+}).then(stream=>{
+    const video=document.getElementById("video");
+    video.srcObject=stream;
+    video.play();
 
-let html5QrCode = new Html5Qrcode("reader");
+    codeReader.decodeFromVideoElement(video,(result,err)=>{
+        if(result){
+            let parsed=parseGS1(result.text);
 
-let config = {
-    fps: 10,
-    qrbox: { width: 250, height: 100 },
-    formatsToSupport: [
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.EAN_13
-    ]
-};
+            if(parsed.weight){
 
-Html5Qrcode.getCameras().then(devices => {
-    if (devices && devices.length) {
-        let cameraId = devices[0].id;
+                dataScan.push(parsed);
+                totalKg+=parsed.weight;
 
-        html5QrCode.start(
-            cameraId,
-            config,
-            (decodedText) => {
-                onScanSuccess(decodedText);
+                document.getElementById("box").innerText=dataScan.length;
+                document.getElementById("kg").innerText=totalKg.toFixed(2);
+
+                let log=document.getElementById("log");
+                let item=document.createElement("div");
+                item.innerText="✔ "+parsed.weight+" kg | "+parsed.serial;
+                log.prepend(item);
+
+                new Audio("https://www.soundjay.com/buttons/sounds/button-3.mp3").play();
+                if(navigator.vibrate) navigator.vibrate(200);
             }
-        );
-    }
-}).catch(err => {
-    alert("Kamera error: " + err);
+        }
+    });
 });
 
-function clearData(){
-    dataScan = [];
-    totalKg = 0;
-    document.getElementById("totalBox").innerText = 0;
-    document.getElementById("totalKg").innerText = 0;
-    document.getElementById("log").innerHTML = "";
+// RESET
+function reset(){
+    dataScan=[];
+    totalKg=0;
+    document.getElementById("box").innerText=0;
+    document.getElementById("kg").innerText=0;
+    document.getElementById("log").innerHTML="";
 }
 
+// EXPORT EXCEL
 function exportExcel(){
 
-    let wb = XLSX.utils.book_new();
-    let ws_data = [];
+    let wb=XLSX.utils.book_new();
+    let ws_data=[];
 
     ws_data.push(["PT ANZINDO GRATIA INTERNATIONAL"]);
     ws_data.push([]);
@@ -259,14 +244,14 @@ function exportExcel(){
     ws_data.push(["Nama Barang : Short Ribs Boneless Choice Swift"]);
     ws_data.push([]);
 
-    let index = 0;
+    let index=0;
 
-    for(let r=0; r<10; r++){
-        let row = [];
-        for(let c=0; c<10; c++){
+    for(let r=0;r<10;r++){
+        let row=[];
+        for(let c=0;c<10;c++){
             if(dataScan[index]){
                 row.push(dataScan[index].weight);
-            } else {
+            }else{
                 row.push("");
             }
             index++;
@@ -277,9 +262,9 @@ function exportExcel(){
     ws_data.push([]);
     ws_data.push(["Sub Total","",dataScan.length,"Box",totalKg,"Kg"]);
 
-    let ws = XLSX.utils.aoa_to_sheet(ws_data);
-    XLSX.utils.book_append_sheet(wb, ws, "Tally");
-    XLSX.writeFile(wb, "tally_sheet.xlsx");
+    let ws=XLSX.utils.aoa_to_sheet(ws_data);
+    XLSX.utils.book_append_sheet(wb,ws,"Tally");
+    XLSX.writeFile(wb,"tally_sheet.xlsx");
 }
 </script>
 
