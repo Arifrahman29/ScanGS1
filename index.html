@@ -167,6 +167,11 @@ function parseGS1(barcode) {
             result.productionDate = formatDate(date);
             i += 8;
         }
+        else if (ai === "17") {
+            let date = barcode.substring(i + 2, i + 8);
+            result.expiryDate = formatDate(date);
+            i += 8;
+        }
         else if (ai === "21") {
             result.serial = barcode.substring(i + 2);
             break;
@@ -188,6 +193,7 @@ function onScanSuccess(decodedText) {
     let parsed = parseGS1(decodedText);
 
     if(parsed.weight){
+
         dataScan.push(parsed);
         totalKg += parsed.weight;
 
@@ -198,11 +204,39 @@ function onScanSuccess(decodedText) {
         let item = document.createElement("div");
         item.innerText = "✔ " + parsed.weight + " kg | " + parsed.serial;
         log.prepend(item);
+
+        new Audio("https://www.soundjay.com/buttons/sounds/button-3.mp3").play();
+        if (navigator.vibrate) navigator.vibrate(200);
     }
 }
 
-let scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-scanner.render(onScanSuccess);
+let html5QrCode = new Html5Qrcode("reader");
+
+let config = {
+    fps: 10,
+    qrbox: { width: 250, height: 100 },
+    formatsToSupport: [
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.EAN_13
+    ]
+};
+
+Html5Qrcode.getCameras().then(devices => {
+    if (devices && devices.length) {
+        let cameraId = devices[0].id;
+
+        html5QrCode.start(
+            cameraId,
+            config,
+            (decodedText) => {
+                onScanSuccess(decodedText);
+            }
+        );
+    }
+}).catch(err => {
+    alert("Kamera error: " + err);
+});
 
 function clearData(){
     dataScan = [];
@@ -212,7 +246,6 @@ function clearData(){
     document.getElementById("log").innerHTML = "";
 }
 
-// ================= EXCEL =================
 function exportExcel(){
 
     let wb = XLSX.utils.book_new();
