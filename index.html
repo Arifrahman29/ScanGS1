@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GS1 Scanner PRO MAX FINAL II</title>
+<title>GS1 Scanner PRO MAX FINAL</title>
 
 <script src="https://unpkg.com/@zxing/library@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -77,6 +77,7 @@ button{
 
 .export{background:#22c55e;}
 .reset{background:#ef4444;}
+.capture{background:#f59e0b;}
 
 .upload{
     background:#334155;
@@ -93,7 +94,7 @@ button{
 <div class="container">
 
 <div class="header">
-<h1>🔥 GS1 Scanner PRO MAX FINAL II</h1>
+<h1>🔥 GS1 Scanner PRO MAX FINAL</h1>
 </div>
 
 <div class="card video-wrap">
@@ -108,6 +109,8 @@ button{
 <div class="stat-box">Kg<br><strong id="kg">0</strong></div>
 </div>
 </div>
+
+<button class="capture" onclick="captureScan()">📸 FOTO & SCAN</button>
 
 <div class="upload">
 <input type="file" accept="image/*" onchange="scanImage(event)">
@@ -150,81 +153,37 @@ function parseGS1(barcode){
 
 const codeReader = new ZXing.BrowserMultiFormatReader();
 
-// CAMERA FIX (BACK CAMERA)
-navigator.mediaDevices.enumerateDevices().then(devices=>{
-    
-    let videoDevices = devices.filter(d => d.kind === "videoinput");
-
-    let backCamera = videoDevices.find(d =>
-        d.label.toLowerCase().includes("back") ||
-        d.label.toLowerCase().includes("rear") ||
-        d.label.toLowerCase().includes("environment")
-    );
-
-    let selectedDeviceId = backCamera ? backCamera.deviceId : videoDevices[videoDevices.length - 1].deviceId;
-
-    navigator.mediaDevices.getUserMedia({
-        video:{
-            deviceId: { exact: selectedDeviceId },
-            width:{ideal:1920},
-            height:{ideal:1080}
-        }
-    }).then(stream=>{
-        const video=document.getElementById("video");
-        video.srcObject=stream;
-        video.play();
-        autoScan(video);
-    });
-
+// CAMERA
+navigator.mediaDevices.getUserMedia({
+    video:{
+        facingMode:{ideal:"environment"},
+        width:{ideal:1920},
+        height:{ideal:1080}
+    }
+}).then(stream=>{
+    const video=document.getElementById("video");
+    video.srcObject=stream;
+    video.play();
 });
 
-// 🔥 AUTO SCAN REAL-TIME FIX
-function autoScan(video){
+// 🔥 FOTO & SCAN (MANUAL TRIGGER)
+function captureScan(){
+    const video=document.getElementById("video");
     const canvas=document.getElementById("canvas");
     const ctx=canvas.getContext("2d");
 
-    function scan(){
-        if(video.readyState===4){
+    canvas.width=video.videoWidth;
+    canvas.height=video.videoHeight;
 
-            let vw=video.videoWidth;
-            let vh=video.videoHeight;
+    ctx.drawImage(video,0,0);
 
-            let w=vw*0.9;
-            let h=vh*0.3;
-            let x=(vw-w)/2;
-            let y=(vh-h)/2;
-
-            canvas.width=w;
-            canvas.height=h;
-
-            ctx.drawImage(video,x,y,w,h,0,0,w,h);
-
-            let imgData=ctx.getImageData(0,0,w,h);
-
-            for(let i=0;i<imgData.data.length;i+=4){
-                let r=imgData.data[i];
-                let g=imgData.data[i+1];
-                let b=imgData.data[i+2];
-
-                let contrast=1.5;
-                imgData.data[i]=(r-128)*contrast+128;
-                imgData.data[i+1]=(g-128)*contrast+128;
-                imgData.data[i+2]=(b-128)*contrast+128;
-            }
-
-            ctx.putImageData(imgData,0,0);
-
-            codeReader.decodeFromImage(undefined, canvas.toDataURL())
-            .then(result=>{
-                handleResult(result.text);
-            })
-            .catch(()=>{});
-        }
-
-        requestAnimationFrame(scan);
-    }
-
-    scan();
+    codeReader.decodeFromImage(undefined, canvas.toDataURL())
+    .then(result=>{
+        handleResult(result.text);
+    })
+    .catch(()=>{
+        alert("Barcode tidak terbaca, coba dekatkan & fokuskan kamera");
+    });
 }
 
 // UPLOAD IMAGE
