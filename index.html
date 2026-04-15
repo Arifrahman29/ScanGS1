@@ -185,19 +185,19 @@ hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
 
 const codeReader=new ZXing.BrowserMultiFormatReader(hints,500);
 
-// 🔥 CAMERA HIGH QUALITY
-navigator.mediaDevices.getUserMedia({
-    video:{
-        facingMode:{ideal:"environment"},
-        width:{ideal:1920},
-        height:{ideal:1080}
-    }
-}).then(stream=>{
-    const video=document.getElementById("video");
-    video.srcObject=stream;
-    video.play();
+// 🔥 AUTO PILIH KAMERA BELAKANG
+ZXing.BrowserMultiFormatReader.listVideoInputDevices()
+.then(videoInputDevices => {
 
-    codeReader.decodeFromVideoElement(video,(result,err)=>{
+    let backCamera = videoInputDevices.find(device =>
+        device.label.toLowerCase().includes('back') ||
+        device.label.toLowerCase().includes('rear') ||
+        device.label.toLowerCase().includes('environment')
+    );
+
+    let selectedDeviceId = backCamera ? backCamera.deviceId : videoInputDevices[0].deviceId;
+
+    codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
         if(result){
             let parsed=parseGS1(result.text);
 
@@ -219,6 +219,7 @@ navigator.mediaDevices.getUserMedia({
             }
         }
     });
+
 });
 
 // RESET
