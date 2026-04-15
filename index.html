@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GS1 Scanner PRO MAX FINAL</title>
+<title>GS1 Scanner PRO - QUAGGA</title>
 
-<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
@@ -32,25 +32,12 @@ body{
     margin-bottom:15px;
 }
 
-.video-wrap{position:relative;}
-
-video{
+#scanner{
     width:100%;
+    height:250px;
     border-radius:12px;
+    overflow:hidden;
 }
-
-.scan-box{
-    position:absolute;
-    top:50%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    width:85%;
-    height:140px;
-    border:3px dashed #22c55e;
-    border-radius:10px;
-}
-
-canvas{display:none;}
 
 .stats{
     display:flex;
@@ -94,13 +81,11 @@ button{
 <div class="container">
 
 <div class="header">
-<h1>🔥 GS1 Scanner PRO MAX FINAL</h1>
+<h1>🔥 GS1 Scanner PRO (QUAGGA)</h1>
 </div>
 
-<div class="card video-wrap">
-<video id="video" autoplay muted playsinline></video>
-<div class="scan-box"></div>
-<canvas id="canvas"></canvas>
+<div class="card">
+<div id="scanner"></div>
 </div>
 
 <div class="card">
@@ -151,75 +136,40 @@ function parseGS1(barcode){
     return result;
 }
 
-const codeReader = new ZXing.BrowserMultiFormatReader();
-
-// CAMERA
-navigator.mediaDevices.getUserMedia({
-    video:{
-        facingMode:{ideal:"environment"},
-        width:{ideal:1920},
-        height:{ideal:1080}
-    }
-}).then(stream=>{
-    const video=document.getElementById("video");
-    video.srcObject=stream;
-    video.play();
+// 🔥 START QUAGGA (REALTIME LEBIH KUAT)
+Quagga.init({
+    inputStream:{
+        type:"LiveStream",
+        target:document.querySelector('#scanner'),
+        constraints:{
+            facingMode:"environment",
+            width:1280,
+            height:720
+        }
+    },
+    locator:{
+        patchSize:"medium",
+        halfSample:false
+    },
+    numOfWorkers:4,
+    frequency:10,
+    decoder:{
+        readers:[
+            "code_128_reader",
+            "ean_reader"
+        ]
+    },
+    locate:true
+},function(err){
+    if(err){console.log(err);return;}
+    Quagga.start();
 });
 
-// 🔥 FOTO & SCAN (MANUAL TRIGGER)
-function captureScan(){
-    const video=document.getElementById("video");
-    const canvas=document.getElementById("canvas");
-    const ctx=canvas.getContext("2d");
+// 🔥 HANDLE SCAN
+Quagga.onDetected(function(data){
+    let code=data.codeResult.code;
 
-    canvas.width=video.videoWidth;
-    canvas.height=video.videoHeight;
-
-    ctx.drawImage(video,0,0);
-
-    codeReader.decodeFromImage(undefined, canvas.toDataURL())
-    .then(result=>{
-        handleResult(result.text);
-    })
-    .catch(()=>{
-        alert("Barcode tidak terbaca, coba dekatkan & fokuskan kamera");
-    });
-}
-
-// UPLOAD IMAGE
-function scanImage(event){
-    const file=event.target.files[0];
-    if(!file) return;
-
-    const img=new Image();
-    const reader=new FileReader();
-
-    reader.onload=e=>img.src=e.target.result;
-
-    img.onload=function(){
-        const canvas=document.getElementById("canvas");
-        const ctx=canvas.getContext("2d");
-
-        canvas.width=img.width;
-        canvas.height=img.height;
-
-        ctx.drawImage(img,0,0);
-
-        codeReader.decodeFromImage(undefined, canvas.toDataURL())
-        .then(result=>{
-            handleResult(result.text);
-        })
-        .catch(()=>{
-            alert("Barcode tidak terbaca, pastikan jelas & dekat");
-        });
-    }
-
-    reader.readAsDataURL(file);
-}
-
-// HANDLE RESULT
-function handleResult(text){
-    let parsed=parseGS1(text);
+    let parsed=parseGS1(code);
 
     if(parsed.weight){
         dataScan.push(parsed);
@@ -231,6 +181,53 @@ function handleResult(text){
         new Audio("https://www.soundjay.com/buttons/sounds/button-3.mp3").play();
         if(navigator.vibrate) navigator.vibrate(200);
     }
+});
+
+// 📸 FOTO REAL CAMERA
+function captureScan(){
+    const input=document.createElement("input");
+    input.type="file";
+    input.accept="image/*";
+    input.capture="environment";
+
+    input.onchange=function(e){
+        scanImage(e);
+    };
+
+    input.click();
+}
+
+// UPLOAD IMAGE
+function scanImage(event){
+    const file=event.target.files[0];
+    if(!file) return;
+
+    const reader=new FileReader();
+
+    reader.onload=function(e){
+        Quagga.decodeSingle({
+            src:e.target.result,
+            numOfWorkers:0,
+            decoder:{
+                readers:["code_128_reader","ean_reader"]
+            }
+        },function(result){
+            if(result && result.codeResult){
+                let parsed=parseGS1(result.codeResult.code);
+                if(parsed.weight){
+                    dataScan.push(parsed);
+                    totalKg+=parsed.weight;
+
+                    document.getElementById("box").innerText=dataScan.length;
+                    document.getElementById("kg").innerText=totalKg.toFixed(2);
+                }
+            }else{
+                alert("Barcode tidak terbaca");
+            }
+        });
+    };
+
+    reader.readAsDataURL(file);
 }
 
 // RESET
